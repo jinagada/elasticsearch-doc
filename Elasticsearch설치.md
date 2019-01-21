@@ -739,3 +739,4 @@ sample1$ vi sample1.conf
 - http://kimjmin.net/2018/08/2018-08-install-security-over-es63/
 - http://blueskai.tistory.com/101
 - https://www.elastic.co/guide/en/logstash/current/installing-logstash.html
+- https://www.elastic.co/guide/en/logstash/current/running-logstash-command-line.html
