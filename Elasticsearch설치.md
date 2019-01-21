@@ -214,7 +214,7 @@ grant {
 ```
 
 # Elasticsearch 설치
-- 3대의 가상머신에 모두 설정 및 설치
+- 3대의 가상머신(elastic-01, elastic-02, elastic-03)에 모두 설정 및 설치
 ## 시스템 설정 확인 및 수정
 - yourid : Elasticsearch 를 실행하는 계정
 ```shell
@@ -322,6 +322,12 @@ echo 262144 > /proc/sys/fs/file-max <== 추가
   - elastic-01 : node-1
   - elastic-02 : node-2
   - elastic-03 : node-3
+- network.host 은 3대의 서버에 각각의 서버 IP로 설정
+  - elastic-01 : 192.168.56.101
+  - elastic-02 : 192.168.56.102
+  - elastic-03 : 192.168.56.103
+- network.host 설정 시 “_site_” 로 설정 해도 됨
+  - 추후 인증서 생성 시에는 반드시 /etc/hosts 파일에 설정된 IP, HOST 명을 사용해야함
 ```shell
 # elasticsearch.yml 파일 수정
 ~$ vi elasticsearch/config/elasticsearch.yml
@@ -523,6 +529,164 @@ elasticsearch$ stop.sh
 elasticsearch$ start.sh
 ```
 
+# Kibana 설치
+- kibana_04 서버에 설치
+## Kibana 내려받기
+```shell
+# Kibana 6.4 다운로드 및 확인
+~$ wget https://artifacts.elastic.co/downloads/kibana/kibana-6.4.0-linux-x86_64.tar.gz
+~$ shasum -a 512 kibana-6.4.0-linux-x86_64.tar.gz
+ 
+# 압축 해제
+~$ tar -xzf kibana-6.4.0-linux-x86_64.tar.gz
+
+# 심볼릭 링크 생성
+~$ ln -s kibana-6.4.0-linux-x86_64/ kibana
+```
+
+## Kibana 설정 파일 수정
+```shell
+# kibana.yml 파일 수정
+~$ vi kibana/config/kibana.yml
+-- 내용 수정 -----------------------------------------------------------------------------------
+# Kibana is served by a back end server. This setting specifies the port to use.
+#server.port: 5601
+ 
+...... 내용 생략
+# To allow connections from remote users, set this parameter to a non-loopback address.
+server.host: "0.0.0.0" <== 주석 해제 및 수정
+ 
+# Enables you to specify a path to mount Kibana at if you are running behind a proxy.
+...... 내용 생략
+ 
+# The URL of the Elasticsearch instance to use for all your queries.
+elasticsearch.url: "http://elastic-01:9200" <== 주석 해제 및 수정
+ 
+# When this setting's value is true Kibana uses the hostname specified in the server.host
+...... 내용 생략
+# Specifies the path where Kibana creates the process ID file.
+pid.file: kibana.pid <== 주석 해제 및 수정
+ 
+# Enables you specify a file where Kibana stores log output.
+...... 내용 생략
+#i18n.defaultLocale: "en"
+-- 내용 수정 -----------------------------------------------------------------------------------
+```
+
+## start.sh, stop.sh 생성
+- 실행 / 중지를 편하게 하기 위한 목적으로 필요 없을 경우 생략해도 무방함
+```shell
+# 작업 디렉토리 이동
+~$ cd kibana
+ 
+# start.sh 스크립트 작성
+kibana$ cat > start.sh
+sudo logrotate -f /etc/logrotate.d/kibana <== logrotate 설정은 아래의 내용 참고
+nohup bin/kibana > /var/log/kibana/kibana.log 2>&1 & <== Console 에 나오는 Log를 파일로 남김
+# Ctrl + C 를 눌러서 빠져나옴
+ 
+# stop.sh 스크립트 작성
+kibana$ cat > stop.sh
+#!/bin/bash
+kill `cat kibana.pid`
+  
+if [ -f "kibana.pid" ] ; then
+    rm kibana.pid
+fi
+# Ctrl + C 를 눌러서 빠져나옴
+ 
+# 실행권한 추가
+kibana$ chmod +x *.sh
+```
+
+## Kibana Log 확인을 위한 logrotate 설정
+- Kibana의 경우 Node.js 로 만들어져서 Java로 만들어진 Elasticsearch, Logstash에 비해 자체 Log 처리가 조금 미흡함
+- 서버 Console 에 나오는 Log를 파일로 관리 하고 싶은 경우 참고 할 것
+```shell
+# 작업 디렉토리 이동
+kibana$ cd /var/log
+ 
+# Kibana log 디렉토리 생성 및 소유권 변경
+log$ sudo mkdir kibana
+log$ sudo chown yourid:yourid kibana
+ 
+# 작업 디렉토리 이동
+log$ cd /etc/logrotate.d
+ 
+# logrotate 설정 추가
+/etc/logrotate.d$ sudo vi kibana
+-- 내용 작성 -----------------------------------------------------------------------------------
+/var/log/kibana/kibana.log {
+    copytruncate
+    daily
+    rotate 15
+    missingok
+    notifempty
+    compress
+    dateext
+    dateformat -%Y%m%d_%s
+    postrotate
+        /bin/chown yourid:yourid /var/log/kibana/kibana.log*
+    endscript
+    su root yourid
+}
+-- 내용 작성 -----------------------------------------------------------------------------------
+```
+
+## Kibana 실행 / 중지
+```shell
+# 작업 디렉토리 이동
+log$ cd ~/kibana
+
+# 실행
+kibana$ ./start.sh
+
+# 중지
+kibana$ ./stop.sh
+```
+
+# Logstash 설치
+- logstash_05 서버에 설치
+## Logstash 내려받기
+```shell
+# Logstash 6.4 다운로드 및 확인
+~$ wget https://artifacts.elastic.co/downloads/logstash/logstash-6.4.0.tar.gz
+~$ wget https://artifacts.elastic.co/downloads/logstash/logstash-6.4.0.tar.gz.sha512
+~$ shasum -a 512 -c logstash-6.4.0.tar.gz.sha512
+ 
+# 압축 해제
+~$ tar -xzf logstash-6.4.0.tar.gz
+ 
+# 심볼릭 링크 변경
+~$ ln -s logstash-6.4.0/ logstash
+```
+
+## Sample conf 파일 생성
+- 실제 동작하는 예제는 아니며, .conf 파일을 여러개 사용하여 하나의 서버에서 동시에 관리 하는 방법을 위한 설정 예제임
+```shell
+# 작업 디렉토리 이동
+~$ cd logstash
+
+# .conf 파일들을 보관할 디렉토리 생성
+logstash$ mkdir conf-file
+
+# 작업 디렉토리 이동
+logstash$ cd conf-file
+
+# sample 디렉토리 생성
+conf-file$ mkdir sample1
+conf-file$ mkdir sample2
+
+# 작업 디렉토리 이동
+conf-file$ cd sample1
+
+# sample1.conf 파일 생성
+sample1$ vi sample1.conf
+-- 내용 작성 -----------------------------------------------------------------------------------
+-- 내용 작성 -----------------------------------------------------------------------------------
+```
+
+
 # 참고
 - https://www.lesstif.com/pages/viewpage.action?pageId=6979732
 - https://www.refmanual.com/2016/01/08/completely-remove-swap-on-ce7/
@@ -530,3 +694,5 @@ elasticsearch$ start.sh
 - https://www.elastic.co/guide/en/elasticsearch/reference/current/zip-targz.html
 - https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks.html
 - http://kimjmin.net/2018/08/2018-08-install-security-over-es63/
+- http://blueskai.tistory.com/101
+- https://www.elastic.co/guide/en/logstash/current/installing-logstash.html
