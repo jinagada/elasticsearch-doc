@@ -523,10 +523,13 @@ elasticsearch$ mkdir cert
 # 인증서 파일 이동
 elasticsearch$ mv certificate-bundle.zip ./cert
  
-# 압축 해제
+# 작업 디렉토리 이동
 elasticsearch$ cd cert
+
+# 압축 해제
 cert$ unzip certificate-bundle.zip
-# 디렉토리 이동
+
+# 작업 디렉토리 이동
 cert$ ~/elasticsearch/config
  
 # elasticsearch.yml 파일 수정
