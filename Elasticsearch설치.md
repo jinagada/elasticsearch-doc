@@ -623,7 +623,7 @@ fi
 kibana$ chmod +x *.sh
 ```
 
-## Kibana Log 확인을 위한 logrotate 설정
+## Kibana Log 관리를 위한 logrotate 설정
 - Kibana의 경우 Node.js 로 만들어져서 Java로 만들어진 Elasticsearch, Logstash에 비해 자체 Log 처리가 조금 미흡함
 - 서버 Console 에 나오는 Log를 파일로 관리 하고 싶은 경우 참고 할 것
 ```shell
