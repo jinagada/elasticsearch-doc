@@ -1,0 +1,532 @@
+# Elastic Stack 설치 가이드
+- 이 문서에서는 Elasticsearch 6.4.0 기준으로 설치가 진행 되지만, 6.5.4 버전도 동일하게 설치 할 수 있음
+
+# 테스트 환경
+
+- VirtualBox : 5.2.16 r123759(Qt5.6.2)
+  - CPU : 2 cpu
+  - MEM : 4G
+  - HDD : 100G
+  - 머신수 : Elasticsearch X 3, Kibana X 1, Logstash X 1, Beats X 1
+- 각 가상머신 별 IP / HOST 명
+  - 192.168.56.101 elastic-01
+  - 192.168.56.102 elastic-02
+  - 192.168.56.103 elastic-03
+  - 192.168.56.104 kibana_04
+  - 192.168.56.105 logstash_05
+  - 192.168.56.106 beats_06
+- OS : CentOS Linux release 7.5.1804 (Core)
+- JDK :
+  - openjdk version "1.8.0_181"
+  - OpenJDK Runtime Environment (build 1.8.0_181-b13)
+  - OpenJDK 64-Bit Server VM (build 25.181-b13, mixed mode)
+- Elastic Stack : 6.4.0 ~ 6.5.4
+
+# 전체 공통 설정
+## SELinux 끄기
+- root(suto 포함) 권한으로 실행되는 프로그램(Metricbeat, Nginx 등)이 있는 경우 끄고 사용하는 것이 좋음
+- disabled 상태로 변경 한 후 다시 enforcing 상태로 되돌릴 경우 어떤 오류가 발생 할지 알 수 없음.
+- permissive 상태는 모든 상태 로그는 그대로 남겨두기 때문에 다시 enforcing 상태로 변경 하여도 문제가 발생하지 않음.
+### 명령어로 임시 조치
+```shell
+# 현재 상태 확인
+~$ sudo sestatus
+
+# permissive 상태로 임시 변경
+~$ sudo setenforce 0
+```
+
+### 서버 설정 파일 편집
+```shell
+# selinux 파일 편집
+~$ sudo vi /etc/sysconfig/selinux
+-- 내용 수정 -----------------------------------------------------------------------------------
+# This file controls the state of SELinux on the system.
+# SELINUX= can take one of these three values:
+#     enforcing - SELinux security policy is enforced.
+#     permissive - SELinux prints warnings instead of enforcing.
+#     disabled - No SELinux policy is loaded.
+#SELINUX=enforcing <== 주석 처리
+SELINUX=permissive <== 내용 추가
+# SELINUXTYPE= can take one of three two values:
+#     targeted - Targeted processes are protected,
+#     minimum - Modification of targeted policy. Only selected processes are protected.
+#     mls - Multi Level Security protection.
+SELINUXTYPE=targeted
+-- 내용 수정 -----------------------------------------------------------------------------------
+
+# 서버 재기동
+~$ sudo reboot 0
+```
+
+## Swap 끄기
+- 꼭 필요한 경우가 아니면 가급적 끄지 말고 사용 할 것!
+- 테스트 용도에서의 경우 굳이 Swap 설정을 끌 필요는 없음
+- Elasticsearch 메뉴얼을 확인 해 보면 운영서버의 경우 끄라고 되어 있음
+```shell
+# swap 사용 중지
+~$ sudo swapoff -a
+
+# free-up 공간 제거
+~$ sudo lvremove -Ay /dev/centos/swap
+
+# /dev/centos/root 경로 재설정
+~$ sudo lvextend -l +100%FREE /dev/centos/root
+
+# grub2.cfg 파일 재생성 전 파일 수정
+~$ sudo vi /etc/default/grub
+-- 내용 수정 -----------------------------------------------------------------------------------
+GRUB_TIMEOUT=5
+GRUB_DEFAULT=saved
+GRUB_DISABLE_SUBMENU=true
+GRUB_TERMINAL_OUTPUT="console"
+##GRUB_CMDLINE_LINUX="rd.lvm.lv=centos/root rd.lvm.lv=centos/swap crashkernel=auto rhgb quiet" <== 주석처리
+GRUB_CMDLINE_LINUX="rd.lvm.lv=centos/root crashkernel=auto rhgb quiet" <== 내용추가
+GRUB_DISABLE_RECOVERY="true"
+-- 내용 수정 -----------------------------------------------------------------------------------
+
+# 기존 파일 백업
+~$ sudo cp /etc/grub2.cfg /etc/grub2.cfg.bak
+
+# grub2.cfg 파일 재생성
+~$ sudo grub2-mkconfig > /etc/grub2.cfg
+
+# 서버 재기동
+~$ sudo reboot 0
+```
+
+## JDK 설치
+- JDK를 사용하는 모든 프로그램(Elasticsearch, Logstash 등)의 가상머신에 모두 설치 할 것
+- java.policy 파일 수정은 Elasticsearch 실행 시 관련 에러가 발생하면 수정 해야 함
+```shell
+# JDK 확인
+~$ sudo yum list java*jdk-devel
+-- 출력 내용 -----------------------------------------------------------------------------------
+Loaded plugins: fastestmirror
+Determining fastest mirrors
+ * base: mirror.kakao.com
+ * epel: mirror.premi.st
+ * extras: mirror.kakao.com
+ * updates: mirror.kakao.com
+Available Packages
+java-1.6.0-openjdk-devel.x86_64 1:1.6.0.41-1.13.13.1.el7_3 base
+java-1.7.0-openjdk-devel.x86_64 1:1.7.0.201-2.6.16.1.el7_6 updates
+java-1.8.0-openjdk-devel.i686   1:1.8.0.191.b12-1.el7_6    updates
+java-1.8.0-openjdk-devel.x86_64 1:1.8.0.191.b12-1.el7_6    updates <== 설치
+java-11-openjdk-devel.i686      1:11.0.1.13-3.el7_6        updates
+java-11-openjdk-devel.x86_64    1:11.0.1.13-3.el7_6        upd
+-- 출력 내용 -----------------------------------------------------------------------------------
+
+# 설치
+~$ sudo yum install -y java-1.8.0-openjdk-devel.x86_64
+
+# 설치 후 확인
+~$ java -version
+-- 출력 내용 -----------------------------------------------------------------------------------
+openjdk version "1.8.0_181"
+OpenJDK Runtime Environment (build 1.8.0_181-b13)
+OpenJDK 64-Bit Server VM (build 25.181-b13, mixed mode)
+-- 출력 내용 -----------------------------------------------------------------------------------
+
+# java.policy 파일 찾기
+~$ sudo find / -name 'java.policy'
+-- 출력 내용 -----------------------------------------------------------------------------------
+/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181-3.b13.el7_5.x86_64/jre/lib/security/java.policy
+-- 출력 내용 -----------------------------------------------------------------------------------
+
+# 파일 내용 확인
+~$ cat /usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181-3.b13.el7_5.x86_64/jre/lib/security/java.policy
+-- 출력 내용 -----------------------------------------------------------------------------------
+...... 내용 생략
+permission java.io.FilePermission "<<ALL FILES>>", "read";
+...... 내용 생략
+-- 출력 내용 -----------------------------------------------------------------------------------
+ 
+# 위 내용이 없다면 추가
+~$ sudo vi /usr/lib/jvm/java-1.8.0-openjdk-1.8.0.181-3.b13.el7_5.x86_64/jre/lib/security/java.policy
+-- 내용 수정 -----------------------------------------------------------------------------------
+// Standard extensions get all permissions by default
+ 
+grant codeBase "file:${{java.ext.dirs}}/*" {
+        permission java.security.AllPermission;
+};
+ 
+// default permissions granted to all domains
+ 
+grant {
+...... 내용 생략
+ 
+        permission java.io.FilePermission "<<ALL FILES>>", "read";
+};
+-- 내용 수정 -----------------------------------------------------------------------------------
+```
+
+## CentOS 7 최소설치 후 필요한 프로그램 설치
+- 테스트에 사용할 6대의 가상머신에 모두 설치 할 것
+```shell
+# ifconfig 관련 설치
+~$ sudo yum install -y net-tools
+
+# jq 관련 설치
+~$ sudo yum install -y epel-release
+~$ sudo yum install -y jq
+
+# wget 설치
+~$ sudo yum install -y wget
+
+# shasum 설치
+~$ sudo yum install -y perl-Digest-SHA
+
+# zip, unzip, bzip2 설치
+~$ sudo yum install -y zip
+~$ sudo yum install -y unzip
+~$ sudo yum install -y bzip2
+
+# 개발 툴 설치
+~$ sudo yum update
+~$ sudo yum groupinstall "Development Tools"
+```
+
+## hosts 파일 수정
+- Elasticsearch HOST 명의 경우 X-Pack 설정에서 인증서 생성 시 HOST 명에 “_” 를 사용하면 오류가 발생하므로 주의 할것!!
+- 테스트에 사용할 6대의 가상머신에 모두 설정 할 것
+```shell
+# hosts 파일 확인
+~$ cat /etc/hosts
+-- 출력 내용 -----------------------------------------------------------------------------------
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+-- 출력 내용 -----------------------------------------------------------------------------------
+
+# hosts 파일에 IP / HOST 명 등록
+~$ sudo vi /etc/hosts
+-- 내용 수정 -----------------------------------------------------------------------------------
+127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+::1         localhost localhost.localdomain localhost6 localhost6.localdomain6
+
+192.168.56.101 elastic-01
+192.168.56.102 elastic-02
+192.168.56.103 elastic-03
+192.168.56.104 kibana_04
+192.168.56.105 logstash_05
+192.168.56.106 beats_06
+-- 내용 수정 -----------------------------------------------------------------------------------
+```
+
+# Elasticsearch 설치
+- 3대의 가상머신에 모두 설정 및 설치
+## 시스템 설정 확인 및 수정
+- yourid : Elasticsearch 를 실행하는 계정
+```shell
+# 기존 limits.conf 상태 확인
+~$ cat /etc/security/limits.conf
+-- 출력 내용 -----------------------------------------------------------------------------------
+...... 내용 생략
+yourid hard nofile 65536
+yourid soft nofile 65536
+yourid hard nproc 65536
+yourid soft nproc 65536
+yourid hard memlock unlimited
+yourid soft memlock unlimited
+-- 출력 내용 -----------------------------------------------------------------------------------
+ 
+# 위 내용이 없다면 내용 추가
+~$ sudo vi /etc/security/limits.conf
+-- 내용 수정 -----------------------------------------------------------------------------------
+#!/bin/bash
+# THIS FILE IS ADDED FOR COMPATIBILITY PURPOSES
+...... 내용 생략
+#ftp             hard    nproc           0
+#@student        -       maxlogins       4
+ 
+yourid hard nofile 65536
+yourid soft nofile 65536
+yourid hard nproc 65536
+yourid soft nproc 65536
+yourid hard memlock unlimited
+yourid soft memlock unlimited
+ 
+# End of file
+-- 내용 수정 -----------------------------------------------------------------------------------
+ 
+# rc.local 내용 확인
+~$ cat /etc/rc.local
+-- 출력 내용 -----------------------------------------------------------------------------------
+#!/bin/bash
+# THIS FILE IS ADDED FOR COMPATIBILITY PURPOSES
+#
+# It is highly advisable to create own systemd services or udev rules
+# to run scripts during boot instead of using this file.
+#
+# In contrast to previous versions due to parallel execution during boot
+# this script will NOT be run after all other services.
+#
+# Please note that you must run 'chmod +x /etc/rc.d/rc.local' to ensure
+# that this script will be executed during boot.
+
+touch /var/lock/subsys/local
+-- 출력 내용 -----------------------------------------------------------------------------------
+ 
+# /proc/sys/vm/max_map_count 내용 확인
+~$ cat /proc/sys/vm/max_map_count
+
+# /proc/sys/fs/file-max 내용 확인
+~$ cat /proc/sys/fs/file-max
+
+# 값이 262144 미만인 경우 rc.local 파일에 내용 추가
+~$ sudo vi /etc/rc.local
+-- 내용 수정 -----------------------------------------------------------------------------------
+#!/bin/bash
+# THIS FILE IS ADDED FOR COMPATIBILITY PURPOSES
+...... 내용 생략
+# that this script will be executed during boot.
+ 
+touch /var/lock/subsys/local
+ 
+echo 1048575 > /proc/sys/vm/max_map_count <== 추가
+echo 262144 > /proc/sys/fs/file-max <== 추가
+-- 내용 수정 -----------------------------------------------------------------------------------
+ 
+# rc.local 파일이 수정된 경우 /etc/rc.d/rc.local 파일에 실행 권한 추가
+~$ ls -al /etc/rc.d/rc.local
+-- 출력 내용 -----------------------------------------------------------------------------------
+-rwxr-xr-x. 1 root root 565  8월 20 16:15 /etc/rc.d/rc.local
+-- 출력 내용 -----------------------------------------------------------------------------------
+
+# 실행 권한이 없는 경우 권한 추가
+~$ sudo chmod +x /etc/rc.d/rc.local
+ 
+# 지금까지의 변경 내용이 있는 경우 서버 재기동 필요
+~$ sudo reboot 0
+```
+
+## Elasticsearch 내려받기
+- elastic-01, elastic-02, elastic-03 에서 모두 동일하게 내려받기
+```shell
+# ElasticSearch 6.4 다운로드 및 파일 확인
+~$ wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-6.4.0.tar.gz
+~$ wget https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-6.4.0.tar.gz.sha512
+~$ shasum -a 512 -c elasticsearch-6.4.0.tar.gz.sha512
+ 
+# 압축 해제
+~$ tar -xzf elasticsearch-6.4.0.tar.gz
+
+# 심볼릭 링크 생성
+~$ ln -s elasticsearch-6.4.0/ elasticsearch
+```
+
+## Elasticsearch 설정 파일 수정
+- cluster.name 은 3대의 서버에 모두 동일하게 설정
+  - 하나의 Cluster로 묶기 위함
+- node.name 은 3대의 서버에 각각 다른 이름으로 설정
+  - elastic-01 : node-1
+  - elastic-02 : node-2
+  - elastic-03 : node-3
+```shell
+# elasticsearch.yml 파일 수정
+~$ vi elasticsearch/config/elasticsearch.yml
+-- 내용 수정 -----------------------------------------------------------------------------------
+# ======================== Elasticsearch Configuration =========================
+#
+...... 내용 생략
+#
+# ---------------------------------- Cluster -----------------------------------
+#
+# Use a descriptive name for your cluster:
+#
+cluster.name: local-cluster <== 주석 해제 및 수정
+#
+# ------------------------------------ Node ------------------------------------
+#
+# Use a descriptive name for the node:
+#
+node.name: node-1 <== 주석 해제 및 수정
+ 
+node.master: true <== 내용 추가
+node.data: true <== 내용 추가
+node.ingest: true <== 내용 추가
+#
+# Add custom attributes to the node:
+#
+#node.attr.rack: r1
+#
+# ----------------------------------- Paths ------------------------------------
+#
+# Path to directory where to store the data (separate multiple locations by comma):
+#
+#path.data: /path/to/data
+#
+# Path to log files:
+#
+#path.logs: /path/to/data
+#
+# ----------------------------------- Memory -----------------------------------
+#
+# Lock the memory on startup:
+#
+bootstrap.memory_lock: true <== 주석 해제 및 수정
+#
+...... 내용 생략
+#
+# ---------------------------------- Network -----------------------------------
+#
+# Set the bind address to a specific IP (IPv4 or IPv6):
+#
+network.host: 192.168.56.101 <== 주석 해제 및 수정
+#
+# Set a custom port for HTTP:
+#
+http.port: 9200 <== 주석 해제 및 수정
+#
+# For more information, consult the network module documentation.
+#
+# --------------------------------- Discovery ----------------------------------
+#
+# Pass an initial list of hosts to perform discovery when new node is started:
+# The default list of hosts is ["127.0.0.1", "[::1]"]
+#
+discovery.zen.ping.unicast.hosts: ["elastic-01", "elastic-02", "elastic-03"] <== 주석 해제 및 수정
+#
+# Prevent the "split brain" by configuring the majority of nodes (total number of master-eligible nodes / 2 + 1):
+...... 내용 생략
+#
+#action.destructive_requires_name: true
+-- 내용 수정 -----------------------------------------------------------------------------------
+ 
+# jvm.options 파일 수정
+~$ vi elasticsearch/config/jvm.options
+-- 내용 수정 -----------------------------------------------------------------------------------
+## JVM configuration
+ 
+################################################################
+## IMPORTANT: JVM heap size
+...... 내용 생략
+################################################################
+ 
+# Xms represents the initial size of total heap space
+# Xmx represents the maximum size of total heap space
+ 
+-Xms2g <== 내용 수정
+-Xmx2g <== 내용 수정
+ 
+################################################################
+## Expert settings
+...... 내용 생략
+ 
+# temporary workaround for C2 bug with JDK 10 on hardware with AVX-512
+10-:-XX:UseAVX=2
+-- 내용 수정 -----------------------------------------------------------------------------------
+```
+
+## 한글형태소 분석기(Nori) 설치
+- elastic-01, elastic-02, elastic-03 에서 모두 동일하게 설치
+```shell
+# 작업 디렉토리 이동
+~$ cd elasticsearch
+ 
+# Nori 형태소 분석기 plugin 설치
+elasticsearch$ bin/elasticsearch-plugin install analysis-nori
+```
+
+## start.sh, stop.sh 생성
+- elastic-01, elastic-02, elastic-03 에서 모두 동일하게 생성
+- 실행 / 중지를 편하게 하기 위한 목적으로 필요 없을 경우 생략해도 무방함
+```shell
+# start.sh 스크립트 작성
+elasticsearch$ cat > start.sh
+bin/elasticsearch -d -p es.pid
+# Ctrl + C 를 눌러서 빠져나옴
+ 
+# stop.sh 스크립트 작성
+elasticsearch$ cat > stop.sh
+kill `cat es.pid`
+# Ctrl + C 를 눌러서 빠져나옴
+ 
+# 작성한 스크립트 실행 권한 추가
+elasticsearch$ chmod +x *.sh
+```
+
+## Elasticsearch 실행 / 중지
+```shell
+# 실행
+elasticsearch$ ./start.sh
+
+# 중지
+elasticsearch$ ./stop.sh
+```
+
+## Elasticsearch 노드간 통신 TLS 적용을 위한 인증서 생성
+- elastic-01 에서 생성 한 후 elastic-02, elastic-03 에 복사하여 동일한 파일로 설정 해야함
+- 6.3.x 버전 이후부터는 TLS 적용이 가능하며, X-Pack을 적용하지 않아도 사용 가능함
+  - TLS 를 적용해야 라이센스 적용 및 추후 X-Pack 적용이 쉬움
+  - TLS 설정이 되어 있지 않은 경우 라이센스 적용이 되지 않음
+- instance name 은 elasticsearch.yml 파일의 cluster.name 을 입력
+- IP, DNS(HOST 명) 입력 시 잘못 작성하지 않도록 주의 해야함
+  - /etc/hosts 파일에 명시된 이름 혹은 DNS 서버에서 확인 할 수 있는 이름으로 사용 해야함
+```shell
+# 인증서 생성
+elasticsearch$ bin/elasticsearch-certgen
+-- 출력 내용 -----------------------------------------------------------------------------------
+...
+Let's get started...
+ 
+Please enter the desired output file [certificate-bundle.zip]: <== 엔터
+Enter instance name: local-cluster <== 입력
+Enter name for directories and files [local-cluster]: <== 엔터
+Enter IP Addresses for instance (comma-separated if more than one) []: 192.168.56.101,192.168.56.102,192.168.56.103 <== 입력
+Enter DNS names for instance (comma-separated if more than one) []: elastic-01,elastic-02,elastic-03 <== 입력
+Would you like to specify another instance? Press 'y' to continue entering instance information: n <== 입력
+Certificates written to /home/hunetelk/elasticsearch-6.4.0/certificate-bundle.zip
+-- 출력 내용 -----------------------------------------------------------------------------------
+ 
+# 생성된 인증서 압축 파일을 모든 노드 서버의 ~/elasticsearch 위치에 복사
+elasticsearch$ scp certificate-bundle.zip yourid@elastic-02:~/elasticsearch
+elasticsearch$ scp certificate-bundle.zip yourid@elastic-03:~/elasticsearch
+```
+
+## 인증서 적용
+- elastic-01, elastic-02, elastic-03 에서 모두 동일하게 적용 후 재실행
+```shell
+# 인증서 보관 디렉토리 생성
+elasticsearch$ mkdir cert
+ 
+# 인증서 파일 이동
+elasticsearch$ mv certificate-bundle.zip ./cert
+ 
+# 압축 해제
+elasticsearch$ cd cert
+cert$ unzip certificate-bundle.zip
+# 디렉토리 이동
+cert$ ~/elasticsearch/config
+ 
+# elasticsearch.yml 파일 수정
+config$ vi elasticsearch.yml
+-- 내용 수정 -----------------------------------------------------------------------------------
+# ======================== Elasticsearch Configuration =========================
+#
+...... 내용 생략
+#action.destructive_requires_name: true
+ 
+#Add options
+xpack.security.enabled: false <== X-Pack 은 적용하지 않기 위해 false 로 설정
+xpack.ssl.key: /home/yourid/elasticsearch/cert/local-cluster/local-cluster.key <== 디렉토리 위치 확인
+xpack.ssl.certificate: /home/yourid/elasticsearch/cert/local-cluster/local-cluster.crt <== 디렉토리 위치 확인
+xpack.ssl.certificate_authorities: [ "/home/yourid/elasticsearch/cert/ca/ca.crt" ] <== 디렉토리 위치 확인
+xpack.security.transport.ssl.enabled: true
+-- 내용 수정 -----------------------------------------------------------------------------------
+
+# 디렉토리 이동
+config$ cd ~/elasticsearch
+ 
+# 인증서 적용 후 모든 노드 서버 재기동
+elasticsearch$ stop.sh
+elasticsearch$ start.sh
+```
+
+# 참고
+- https://www.lesstif.com/pages/viewpage.action?pageId=6979732
+- https://www.refmanual.com/2016/01/08/completely-remove-swap-on-ce7/
+- https://www.elastic.co/guide/en/elasticsearch/reference/current/system-config.html
+- https://www.elastic.co/guide/en/elasticsearch/reference/current/zip-targz.html
+- https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks.html
+- http://kimjmin.net/2018/08/2018-08-install-security-over-es63/
