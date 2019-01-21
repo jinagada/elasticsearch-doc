@@ -326,7 +326,7 @@ echo 262144 > /proc/sys/fs/file-max <== 추가
   - elastic-01 : 192.168.56.101
   - elastic-02 : 192.168.56.102
   - elastic-03 : 192.168.56.103
-- network.host 설정 시 “_site_” 로 설정 해도 됨
+- network.host 설정 시 “\_site\_” 로 설정 해도 됨
   - 추후 인증서 생성 시에는 반드시 /etc/hosts 파일에 설정된 IP, HOST 명을 사용해야함
 ```shell
 # elasticsearch.yml 파일 수정
