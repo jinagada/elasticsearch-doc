@@ -452,6 +452,25 @@ kill `cat es.pid`
 elasticsearch$ chmod +x *.sh
 ```
 
+## 방화벽 설정
+- 방화벽 데몬을 재실행 해야 적용이 완료됨
+```shell
+# 9200 포트 열기
+elasticsearch$ sudo firewall-cmd --permanent --add-port=9200/tcp
+
+# 9300 포트 열기
+elasticsearch$ sudo firewall-cmd --permanent --add-port=9300/tcp
+
+# 방화벽 설정 적용
+elasticsearch$ sudo firewall-cmd --reload
+
+# 방화벽 설정 확인
+elasticsearch$ sudo firewall-cmd --list-all
+
+# 방화벽 데몬 재실행
+elasticsearch$ sudo systemctl restart firewalld
+```
+
 ## Elasticsearch 실행 / 중지
 ```shell
 # 실행
@@ -614,7 +633,7 @@ log$ sudo chown yourid:yourid kibana
 log$ cd /etc/logrotate.d
  
 # logrotate 설정 추가
-/etc/logrotate.d$ sudo vi kibana
+logrotate.d$ sudo vi kibana
 -- 내용 작성 -----------------------------------------------------------------------------------
 /var/log/kibana/kibana.log {
     copytruncate
@@ -633,10 +652,26 @@ log$ cd /etc/logrotate.d
 -- 내용 작성 -----------------------------------------------------------------------------------
 ```
 
+## 방화벽 설정
+- 방화벽 데몬을 재실행 해야 적용이 완료됨
+```shell
+# 5601 포트 열기
+logrotate.d$ sudo firewall-cmd --permanent --add-port=5601/tcp
+
+# 방화벽 설정 적용
+logrotate.d$ sudo firewall-cmd --reload
+
+# 방화벽 설정 확인
+logrotate.d$ sudo firewall-cmd --list-all
+
+# 방화벽 데몬 재실행
+logrotate.d$ sudo systemctl restart firewalld
+```
+
 ## Kibana 실행 / 중지
 ```shell
 # 작업 디렉토리 이동
-log$ cd ~/kibana
+logrotate.d$ cd ~/kibana
 
 # 실행
 kibana$ ./start.sh
