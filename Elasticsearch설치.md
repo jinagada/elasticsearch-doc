@@ -506,7 +506,7 @@ Enter name for directories and files [local-cluster]: <== 엔터
 Enter IP Addresses for instance (comma-separated if more than one) []: 192.168.56.101,192.168.56.102,192.168.56.103 <== 입력
 Enter DNS names for instance (comma-separated if more than one) []: elastic-01,elastic-02,elastic-03 <== 입력
 Would you like to specify another instance? Press 'y' to continue entering instance information: n <== 입력
-Certificates written to /home/hunetelk/elasticsearch-6.4.0/certificate-bundle.zip
+Certificates written to /home/yourid/elasticsearch/certificate-bundle.zip
 -- 출력 내용 -----------------------------------------------------------------------------------
  
 # 생성된 인증서 압축 파일을 모든 노드 서버의 ~/elasticsearch 위치에 복사
