@@ -15,7 +15,7 @@
   - 192.168.56.104 kibana_04
   - 192.168.56.105 logstash_05
   - 192.168.56.106 beats_06
-- OS : CentOS Linux release 7.5.1804 (Core)
+- OS : CentOS Linux release 7.5.1804 (Core) <== 최소설치 옵션을 사용하여 설치 하였음
 - JDK :
   - openjdk version "1.8.0_181"
   - OpenJDK Runtime Environment (build 1.8.0_181-b13)
@@ -167,24 +167,29 @@ grant {
 # ifconfig 관련 설치
 ~$ sudo yum install -y net-tools
 
-# jq 관련 설치
+# jq 관련 설치 : Logstash 테스트 시 json 파일 포멧을 변경 할 필요 있는 경우에만 설치
 ~$ sudo yum install -y epel-release
 ~$ sudo yum install -y jq
 
 # wget 설치
 ~$ sudo yum install -y wget
 
-# shasum 설치
+# shasum 설치 : tar.gz 파일을 내려받은 후 sha512 검증을 할 필요가 있는 경우에만 설치
 ~$ sudo yum install -y perl-Digest-SHA
 
-# zip, unzip, bzip2 설치
+# zip, unzip, bzip2 설치 : unzip의 경우는 인증서 파일 압축 해제 시 필요함, bzip2 는 Anaconda(Python)을 설치 하지 않으면 필요 없음
 ~$ sudo yum install -y zip
 ~$ sudo yum install -y unzip
 ~$ sudo yum install -y bzip2
 
-# 개발 툴 설치
+# 개발툴 설치 : 간혹 특정 프로그램 설치 시 필요한 라이브러리들이 있어 미리 설치 해 두는 것이 좋음
 ~$ sudo yum update
 ~$ sudo yum groupinstall "Development Tools"
+
+# firewall-cmd 설치 : 방화벽 포트 오픈 시 편하게 설정 할 수 있음
+~$ sudo yum install firewalld
+~$ sudo systemctl start firewalld
+~$ sudo systemctl enable firewalld
 ```
 
 ## hosts 파일 수정
