@@ -804,6 +804,9 @@ sample1$ vi stop.sh
 -- 내용 작성 -----------------------------------------------------------------------------------
 pkill -ef sample1.conf
 -- 내용 작성 -----------------------------------------------------------------------------------
+
+# 실행 권한 추가
+sample1$ chmod +x *sh
 ```
 
 ### Sample2 start.sh, stop.sh 파일 생성
@@ -822,7 +825,25 @@ sample2$ vi stop.sh
 -- 내용 작성 -----------------------------------------------------------------------------------
 pkill -ef sample2.conf
 -- 내용 작성 -----------------------------------------------------------------------------------
+
+# 실행 권한 추가
+sample2$ chmod +x *sh
 ```
+
+## start.sh 파일 내용 설명
+- nohup : 실행 시 Console에 로그를 출력하지 않도록 하는 명령어
+- -n [NAME] : 개별로 실행하는 경우 각 Logstash instance를 구분하기 위한 이름(--node.name NAME)
+- -f [FILE_PATH] : .conf 파일 위치
+- -l [DIR_PATH] : Log 디렉토리 위치
+- --path.data [DIR_PATH] : Data 디렉토리 위치
+- --log.level=[LEVEL] : 기본값은 “info”
+- \> /dev/null : stdout 을 null 로 보내도록 하는 유닉스 명령어
+- & : 백그라운드로 실행 시키는 유닉스 명령어
+- 여기서 중요한 부분은 “-n”, “-l”, “--path.data” 임
+  - Logstash instance 이름을 넣지 않으면 모두 동일한 이름으로 설정되어 추후 X-Pack 모니터링 시 구분이 안됨
+  - Log 디렉토리 위치가 동일한 경우 모두 하나의 Log 파일(logstash-plain.log)에 Log 가 생성되어 Log 구분이 어려움
+  - **Data 디렉토리 위치가 동일한 경우 Multi Logstash instance 를 실행 하는 경우 Data 디렉토리가 겹치면 안되다는 오류가 발생하면서 중지됨**
+- 보다 자세한 내용은 Logstash 영문 메뉴얼의 “Running Logstash from the Command Line” 부분을 참고 할 것
 
 # 참고
 - https://www.lesstif.com/pages/viewpage.action?pageId=6979732
