@@ -663,6 +663,21 @@ kibana$ ./stop.sh
 
 ## Sample conf 파일 생성
 - 실제 동작하는 예제는 아니며, .conf 파일을 여러개 사용하여 하나의 서버에서 동시에 관리 하는 방법을 위한 설정 예제임
+- 명령어가 매우 길어지므로 start.sh, stop.sh 파일을 생성하여 관리하는 것이 편함
+  - 프로세스 종료 시 “pkill -ef” 명령어를 사용하므로 conf 파일 생성 시 파일명을 구분 가능하도록 생성 해야함
+- Sample 작업을 위한 디렉토리 구조
+```
+-- logstash
+ |-- conf-file
+   |-- sample1
+     |-- sample1.conf
+     |-- start.sh
+     |-- stop.sh
+   |-- sample2
+     |-- sample2.conf
+     |-- start.sh
+     |-- stop.sh
+```
 ```shell
 # 작업 디렉토리 이동
 ~$ cd logstash
@@ -683,9 +698,88 @@ conf-file$ cd sample1
 # sample1.conf 파일 생성
 sample1$ vi sample1.conf
 -- 내용 작성 -----------------------------------------------------------------------------------
+input {
+  file {
+    path => "/home/yourid/logstash/conf-file/sample1/network_traffic_data1.json"
+    start_position => "beginning"
+    sincedb_path => "/dev/null"
+    codec => json {
+      charset => "ISO-8859-1"
+    }
+  }
+}
+output {
+  elasticsearch {
+    hosts => ["elastic-01:9200", "elastic-02:9200", "elastic-03:9200"]
+    index => "bigginsight"
+    document_type => "usageReport"
+  }
+  stdout {}
+}
+-- 내용 작성 -----------------------------------------------------------------------------------
+
+# 작업 디렉토리 이동
+sample1$ cd ../sample2
+
+# sample2.conf 파일 생성
+sample2$ vi sample2.conf
+-- 내용 작성 -----------------------------------------------------------------------------------
+input {
+  file {
+    path => "/home/yourid/logstash/conf-file/sample2/network_traffic_data2.json"
+    start_position => "beginning"
+    sincedb_path => "/dev/null"
+    codec => json {
+      charset => "ISO-8859-1"
+    }
+  }
+}
+output {
+  elasticsearch {
+    hosts => ["elastic-01:9200", "elastic-02:9200", "elastic-03:9200"]
+    index => "bigginsight"
+    document_type => "usageReport"
+  }
+  stdout {}
+}
 -- 내용 작성 -----------------------------------------------------------------------------------
 ```
 
+### Sample1 start.sh, stop.sh 파일 생성
+```shell
+# 작업 디렉토리 이동
+sample2$ cd ../sample1
+
+# start.sh 파일 생성
+sample1$ vi start.sh
+-- 내용 작성 -----------------------------------------------------------------------------------
+nohup ~/logstash/bin/logstash -n logstash_06-sample1 -f sample1.conf -l /home/yourid/logstash/logs/sample1 --path.data /home/yourid/logstash/data/sample1 --log.level=debug > /dev/null &
+-- 내용 작성 -----------------------------------------------------------------------------------
+
+# stop.sh 파일 생성
+sample1$ vi stop.sh
+-- 내용 작성 -----------------------------------------------------------------------------------
+pkill -ef sample1.conf
+-- 내용 작성 -----------------------------------------------------------------------------------
+```
+
+### Sample2 start.sh, stop.sh 파일 생성
+```shell
+# 작업 디렉토리 이동
+sample1$ cd ../sample2
+
+# start.sh 파일 생성
+sample2$ vi start.sh
+-- 내용 작성 -----------------------------------------------------------------------------------
+nohup ~/logstash/bin/logstash -n logstash_06-sample2 -f sample2.conf -l /home/yourid/logstash/logs/sample2 --path.data /home/yourid/logstash/data/sample2 --log.level=debug > /dev/null &
+-- 내용 작성 -----------------------------------------------------------------------------------
+
+# stop.sh 파일 생성
+sample2$ vi stop.sh
+-- 내용 작성 -----------------------------------------------------------------------------------
+pkill -ef sample2.conf
+-- 내용 작성 -----------------------------------------------------------------------------------
+```
 
 # 참고
 - https://www.lesstif.com/pages/viewpage.action?pageId=6979732
