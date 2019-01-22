@@ -845,6 +845,123 @@ sample2$ chmod +x *sh
   - **Data 디렉토리 위치가 동일한 경우 Multi Logstash instance 를 실행 하는 경우 Data 디렉토리가 겹치면 안되다는 오류가 발생하면서 중지됨**
 - 보다 자세한 내용은 Logstash 영문 메뉴얼의 “Running Logstash from the Command Line” 부분을 참고 할 것
 
+# Metricbeat 설치
+- beats_06 서버에 설치
+- 시스템 정보에 접근을 해야 하므로 실행 시 root(sudo) 권한이 필요함에 주의 할 것!!
+## Metricbeat 내려받기
+```shell
+# Metricbeat 6.4.0 다운로드 및 확인
+~$ wget https://artifacts.elastic.co/downloads/beats/metricbeat/metricbeat-6.4.0-linux-x86_64.tar.gz
+~$ wget https://artifacts.elastic.co/downloads/beats/metricbeat/metricbeat-6.4.0-linux-x86_64.tar.gz.sha512
+~$ shasum -a 512 -c metricbeat-6.4.0-linux-x86_64.tar.gz.sha512
+
+# 파일 압축 해제
+~$ tar -xzf metricbeat-6.4.0-linux-x86_64.tar.gz
+
+# 심볼릭 링크 변경
+~$ ln -s metricbeat-6.4.0-linux-x86_64/ metricbeat
+```
+
+## Metricbeat 설정 파일 수정
+```shell
+# 설정 파일 수정
+~$ vi metricbeat/metricbeat.yml
+-- 내용 수정 -----------------------------------------------------------------------------------
+내용 생략....
+#============================== Kibana =====================================
+
+# Starting with Beats version 6.0.0, the dashboards are loaded via the Kibana API.
+# This requires a Kibana endpoint configuration.
+setup.kibana:
+
+  # Kibana Host
+  # Scheme and port can be left out and will be set to the default (http and 5601)
+  # In case you specify and additional path, the scheme is required: http://localhost:5601/path
+  # IPv6 addresses should always be defined as: https://[2001:db8::1]:5601
+  #host: "localhost:5601"
+  host: "kibana_04:5601" <== 내용 추가
+내용 생략....
+#-------------------------- Elasticsearch output ------------------------------
+output.elasticsearch:
+  # Array of hosts to connect to.
+  #hosts: ["localhost:9200"]
+  hosts: ["elastic-01:9200", "elastic-02:9200", "elastic-03:9200"]
+내용 생략....
+#xpack.monitoring.enabled: false
+xpack.monitoring.enabled: true <== 내용 추가
+내용 생략....
+# following line.
+#xpack.monitoring.elasticsearch:
+xpack.monitoring.elasticsearch: <== 내용 추가
+-- 내용 수정 -----------------------------------------------------------------------------------
+
+# 권한 설정
+~$ sudo chown root metricbeat/metricbeat.yml
+~$ sudo chown root metricbeat/modules.d/system.yml
+```
+
+## start.sh, stop.sh 파일 생성
+```shell
+# 작업 디렉토리 이동
+~$ cd metricbeat
+
+# start.sh 작성
+metricbeat$ cat > start.sh
+sudo logrotate -f /etc/logrotate.d/metricbeat
+sudo nohup ./metricbeat -e -c metricbeat.yml > /var/log/metricbeat/metricbeat.log 2>&1 &
+## Ctrl + c 로 나가기
+
+# stop.sh 작성
+metricbeat$ cat > stop.sh
+sudo pkill -ef metricbeat.yml
+## Ctrl + c 로 나가기
+
+# 권한 설정
+metricbeat$ chmod +x *.sh
+```
+
+## Metricbeat Log 관리를 위한 logrotate 설정
+```shell
+# 로그 디렉토리 생성
+metricbeat$ sudo mkdir /var/log/metricbeat
+metricbeat$ sudo chown yourid /var/log/metricbeat
+
+# logrotate 설정
+metricbeat$ sudo vi /etc/logrotate.d/metricbeat
+-- 내용 작성 -----------------------------------------------------------------------------------
+/var/log/metricbeat/metricbeat.log {
+    copytruncate
+    daily
+    rotate 15
+    missingok
+    notifempty
+    compress
+    dateext
+    dateformat -%Y%m%d_%s
+}
+-- 내용 작성 -----------------------------------------------------------------------------------
+```
+
+## Metricbeat 실행 / 중지
+```shell
+# 실행
+metricbeat$ ./start.sh
+
+# 중지
+metricbeat$ ./stop.sh
+```
+
+## Kibans Dashboard 설정
+```shell
+# Merticbeat Kibana Dashboards 설치
+metricbeat$ sudo ./metricbeat setup --dashboards
+```
+
+## Module 별 설정 방법
+- 공식 영문 메뉴얼 참고
+  - https://www.elastic.co/guide/en/beats/metricbeat/current/configuration-metricbeat.html
+  - https://www.elastic.co/guide/en/beats/metricbeat/current/metricbeat-modules.html
+
 # 참고
 - https://www.lesstif.com/pages/viewpage.action?pageId=6979732
 - https://www.refmanual.com/2016/01/08/completely-remove-swap-on-ce7/
@@ -855,3 +972,6 @@ sample2$ chmod +x *sh
 - http://blueskai.tistory.com/101
 - https://www.elastic.co/guide/en/logstash/current/installing-logstash.html
 - https://www.elastic.co/guide/en/logstash/current/running-logstash-command-line.html
+- https://www.elastic.co/guide/en/beats/metricbeat/current/metricbeat-installation.html
+- https://www.elastic.co/guide/en/beats/metricbeat/current/metricbeat-starting.html
+- https://www.elastic.co/guide/en/beats/metricbeat/current/load-kibana-dashboards.html
