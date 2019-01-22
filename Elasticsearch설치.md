@@ -15,7 +15,7 @@
   - 192.168.56.104 kibana_04
   - 192.168.56.105 logstash_05
   - 192.168.56.106 beats_06
-- OS : CentOS Linux release 7.5.1804 (Core)
+- OS : CentOS Linux release 7.5.1804 (Core) <== 최소설치 옵션을 사용하여 설치 하였음
 - JDK :
   - openjdk version "1.8.0_181"
   - OpenJDK Runtime Environment (build 1.8.0_181-b13)
@@ -167,24 +167,29 @@ grant {
 # ifconfig 관련 설치
 ~$ sudo yum install -y net-tools
 
-# jq 관련 설치
+# jq 관련 설치 : Logstash 테스트 시 json 파일 포멧을 변경 할 필요 있는 경우에만 설치
 ~$ sudo yum install -y epel-release
 ~$ sudo yum install -y jq
 
 # wget 설치
 ~$ sudo yum install -y wget
 
-# shasum 설치
+# shasum 설치 : tar.gz 파일을 내려받은 후 sha512 검증을 할 필요가 있는 경우에만 설치
 ~$ sudo yum install -y perl-Digest-SHA
 
-# zip, unzip, bzip2 설치
+# zip, unzip, bzip2 설치 : unzip의 경우는 인증서 파일 압축 해제 시 필요함, bzip2 는 Anaconda(Python)을 설치 하지 않으면 필요 없음
 ~$ sudo yum install -y zip
 ~$ sudo yum install -y unzip
 ~$ sudo yum install -y bzip2
 
-# 개발 툴 설치
+# 개발툴 설치 : 간혹 특정 프로그램 설치 시 필요한 라이브러리들이 있어 미리 설치 해 두는 것이 좋음
 ~$ sudo yum update
 ~$ sudo yum groupinstall "Development Tools"
+
+# firewall-cmd 설치 : 방화벽 포트 오픈 시 편하게 설정 할 수 있음
+~$ sudo yum install firewalld
+~$ sudo systemctl start firewalld
+~$ sudo systemctl enable firewalld
 ```
 
 ## hosts 파일 수정
@@ -326,7 +331,7 @@ echo 262144 > /proc/sys/fs/file-max <== 추가
   - elastic-01 : 192.168.56.101
   - elastic-02 : 192.168.56.102
   - elastic-03 : 192.168.56.103
-- network.host 설정 시 “_site_” 로 설정 해도 됨
+- network.host 설정 시 “\_site\_” 로 설정 해도 됨
   - 추후 인증서 생성 시에는 반드시 /etc/hosts 파일에 설정된 IP, HOST 명을 사용해야함
 ```shell
 # elasticsearch.yml 파일 수정
@@ -452,6 +457,25 @@ kill `cat es.pid`
 elasticsearch$ chmod +x *.sh
 ```
 
+## 방화벽 설정
+- 방화벽 데몬을 재실행 해야 적용이 완료됨
+```shell
+# 9200 포트 열기
+elasticsearch$ sudo firewall-cmd --permanent --add-port=9200/tcp
+
+# 9300 포트 열기
+elasticsearch$ sudo firewall-cmd --permanent --add-port=9300/tcp
+
+# 방화벽 설정 적용
+elasticsearch$ sudo firewall-cmd --reload
+
+# 방화벽 설정 확인
+elasticsearch$ sudo firewall-cmd --list-all
+
+# 방화벽 데몬 재실행
+elasticsearch$ sudo systemctl restart firewalld
+```
+
 ## Elasticsearch 실행 / 중지
 ```shell
 # 실행
@@ -482,7 +506,7 @@ Enter name for directories and files [local-cluster]: <== 엔터
 Enter IP Addresses for instance (comma-separated if more than one) []: 192.168.56.101,192.168.56.102,192.168.56.103 <== 입력
 Enter DNS names for instance (comma-separated if more than one) []: elastic-01,elastic-02,elastic-03 <== 입력
 Would you like to specify another instance? Press 'y' to continue entering instance information: n <== 입력
-Certificates written to /home/hunetelk/elasticsearch-6.4.0/certificate-bundle.zip
+Certificates written to /home/yourid/elasticsearch/certificate-bundle.zip
 -- 출력 내용 -----------------------------------------------------------------------------------
  
 # 생성된 인증서 압축 파일을 모든 노드 서버의 ~/elasticsearch 위치에 복사
@@ -499,10 +523,13 @@ elasticsearch$ mkdir cert
 # 인증서 파일 이동
 elasticsearch$ mv certificate-bundle.zip ./cert
  
-# 압축 해제
+# 작업 디렉토리 이동
 elasticsearch$ cd cert
+
+# 압축 해제
 cert$ unzip certificate-bundle.zip
-# 디렉토리 이동
+
+# 작업 디렉토리 이동
 cert$ ~/elasticsearch/config
  
 # elasticsearch.yml 파일 수정
@@ -599,7 +626,7 @@ fi
 kibana$ chmod +x *.sh
 ```
 
-## Kibana Log 확인을 위한 logrotate 설정
+## Kibana Log 관리를 위한 logrotate 설정
 - Kibana의 경우 Node.js 로 만들어져서 Java로 만들어진 Elasticsearch, Logstash에 비해 자체 Log 처리가 조금 미흡함
 - 서버 Console 에 나오는 Log를 파일로 관리 하고 싶은 경우 참고 할 것
 ```shell
@@ -614,7 +641,7 @@ log$ sudo chown yourid:yourid kibana
 log$ cd /etc/logrotate.d
  
 # logrotate 설정 추가
-/etc/logrotate.d$ sudo vi kibana
+logrotate.d$ sudo vi kibana
 -- 내용 작성 -----------------------------------------------------------------------------------
 /var/log/kibana/kibana.log {
     copytruncate
@@ -633,10 +660,26 @@ log$ cd /etc/logrotate.d
 -- 내용 작성 -----------------------------------------------------------------------------------
 ```
 
+## 방화벽 설정
+- 방화벽 데몬을 재실행 해야 적용이 완료됨
+```shell
+# 5601 포트 열기
+logrotate.d$ sudo firewall-cmd --permanent --add-port=5601/tcp
+
+# 방화벽 설정 적용
+logrotate.d$ sudo firewall-cmd --reload
+
+# 방화벽 설정 확인
+logrotate.d$ sudo firewall-cmd --list-all
+
+# 방화벽 데몬 재실행
+logrotate.d$ sudo systemctl restart firewalld
+```
+
 ## Kibana 실행 / 중지
 ```shell
 # 작업 디렉토리 이동
-log$ cd ~/kibana
+logrotate.d$ cd ~/kibana
 
 # 실행
 kibana$ ./start.sh
@@ -790,3 +833,4 @@ pkill -ef sample2.conf
 - http://kimjmin.net/2018/08/2018-08-install-security-over-es63/
 - http://blueskai.tistory.com/101
 - https://www.elastic.co/guide/en/logstash/current/installing-logstash.html
+- https://www.elastic.co/guide/en/logstash/current/running-logstash-command-line.html
