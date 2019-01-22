@@ -63,6 +63,7 @@ SELINUXTYPE=targeted
 - 꼭 필요한 경우가 아니면 가급적 끄지 말고 사용 할 것!
 - 테스트 용도에서의 경우 굳이 Swap 설정을 끌 필요는 없음
 - Elasticsearch 메뉴얼을 확인 해 보면 운영서버의 경우 끄라고 되어 있음
+- grub2.cfg 파일 재생성의 경우 반드시 root 계정 상태에서 설정 해야함
 ```shell
 # swap 사용 중지
 ~$ sudo swapoff -a
@@ -88,8 +89,14 @@ GRUB_DISABLE_RECOVERY="true"
 # 기존 파일 백업
 ~$ sudo cp /etc/grub2.cfg /etc/grub2.cfg.bak
 
+# root 계정으로 접속
+~$ sudo su -
+
 # grub2.cfg 파일 재생성
-~$ sudo grub2-mkconfig > /etc/grub2.cfg
+~# sudo grub2-mkconfig > /etc/grub2.cfg
+
+# root 계정 접속 종료
+~# exit
 
 # 서버 재기동
 ~$ sudo reboot 0
