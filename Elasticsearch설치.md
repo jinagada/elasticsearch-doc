@@ -340,6 +340,11 @@ echo 262144 > /proc/sys/fs/file-max <== 추가
   - elastic-03 : 192.168.56.103
 - network.host 설정 시 “\_site\_” 로 설정 해도 됨
   - 추후 인증서 생성 시에는 반드시 /etc/hosts 파일에 설정된 IP, HOST 명을 사용해야함
+- jvm.options 파일에서 JVM heap size 는 물리 메모리의 절반까지 설정하는 것이 권장됨
+  - 물리 메모리가 4 G 인경우 : 2g
+  - 물리 메모리가 8 G 인경우 : 4g
+  - 운영서버에서의 권장사항은 구체적으로 나와있지 않으나 경험상 최소 4g 의 heap size가 필요함
+    - java 프로그램들은 생각보다 많은 메모리를 요구하니 너무 작은 메모리 사용은 스트레스를 유발할 가능성이 높음
 ```shell
 # elasticsearch.yml 파일 수정
 ~$ vi elasticsearch/config/elasticsearch.yml
