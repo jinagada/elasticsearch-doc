@@ -311,8 +311,8 @@ logstash$ vi config/logstash.yml
 xpack.monitoring.enabled: true <== 추가 : X-Pack 모니터링 enabled
 #xpack.monitoring.elasticsearch.username: logstash_system
 #xpack.monitoring.elasticsearch.password: password
-xpack.monitoring.elasticsearch.username: logstash_system <== 추가 : X-Pack 설정 시 사용할 계정 ID
-xpack.monitoring.elasticsearch.password: changeme <== 추가 : X-Pack 설정 시 사용할 계정 비밀번호
+xpack.monitoring.elasticsearch.username: logstash_system <== 추가
+xpack.monitoring.elasticsearch.password: changeme <== 추가
 #xpack.monitoring.elasticsearch.url: ["https://es1:9200", "https://es2:9200"]
 xpack.monitoring.elasticsearch.url: ["https://elastic-01:9200", "https://elastic-02:9200", "https://elastic-03:9200"] <== 추가 : Elasticsearch Url 정보
 #xpack.monitoring.elasticsearch.ssl.ca: [ "/path/to/ca.crt" ]
