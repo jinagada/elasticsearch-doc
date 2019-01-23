@@ -849,7 +849,7 @@ sample2$ chmod +x *sh
 - 여기서 중요한 부분은 “-n”, “-l”, “--path.data” 임
   - Logstash instance 이름을 넣지 않으면 모두 동일한 이름으로 설정되어 추후 X-Pack 모니터링 시 구분이 안됨
   - Log 디렉토리 위치가 동일한 경우 모두 하나의 Log 파일(logstash-plain.log)에 Log 가 생성되어 Log 구분이 어려움
-  - **Data 디렉토리 위치가 동일한 경우 Multi Logstash instance 를 실행 하는 경우 Data 디렉토리가 겹치면 안되다는 오류가 발생하면서 중지됨**
+  - **Data 디렉토리 위치가 동일한 상태에서 Multi Logstash instance 를 실행 하는 경우 Data 디렉토리가 겹치면 안되다는 오류가 발생하면서 중지됨**
 - 보다 자세한 내용은 Logstash 영문 메뉴얼의 “Running Logstash from the Command Line” 부분을 참고 할 것
 
 # Metricbeat 설치
