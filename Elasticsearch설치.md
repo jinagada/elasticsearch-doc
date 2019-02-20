@@ -24,7 +24,7 @@
 
 # 전체 공통 설정
 ## SELinux 끄기
-- root(suto 포함) 권한으로 실행되는 프로그램(Metricbeat, Nginx 등)이 있는 경우 끄고 사용하는 것이 좋음
+- root(sudo 포함) 권한으로 실행되는 프로그램(Metricbeat, Nginx 등)이 있는 경우 끄고 사용하는 것이 좋음
 - disabled 상태로 변경 한 후 다시 enforcing 상태로 되돌릴 경우 어떤 오류가 발생 할지 알 수 없음.
 - permissive 상태는 모든 상태 로그는 그대로 남겨두기 때문에 다시 enforcing 상태로 변경 하여도 문제가 발생하지 않음.
 ### 명령어로 임시 조치
