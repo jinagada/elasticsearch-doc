@@ -93,7 +93,7 @@ GRUB_DISABLE_RECOVERY="true"
 ~$ sudo su -
 
 # grub2.cfg 파일 재생성
-~# sudo grub2-mkconfig > /etc/grub2.cfg
+~# grub2-mkconfig > /etc/grub2.cfg
 
 # root 계정 접속 종료
 ~# exit
